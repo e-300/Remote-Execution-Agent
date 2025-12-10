@@ -1,0 +1,25 @@
+targets:
+  - name: k3s-server1
+    hostname: 100.121.44.107
+    username: ubuntu
+    ssh_key_path: /home/buttermcgutters/.ssh/id_ed25519
+    passphrase: ""
+    role: lab
+    env: lab
+
+  - name: vm1
+    hostname: 100.69.115.94
+    username: ubuntu
+    ssh_key_path: /home/buttermcgutters/.ssh/id_ed25519
+    passphrase: "515194"
+    port: 2222
+    role: lab
+    env: lab
+# for aws ec2 instance this would be something like
+# - name: prod-api-1
+#   hostname: prod-api-1.your-tailnet.ts.net
+#   username: ubuntu
+#   ssh_key_path: /home/you/.ssh/id_ed25519
+#   role: web
+#   env: prod
+
