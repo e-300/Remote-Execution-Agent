@@ -1,25 +1,256 @@
-targets:
-  - name: k3s-server1
-    hostname: 100.121.44.107
-    username: ubuntu
-    ssh_key_path: /home/buttermcgutters/.ssh/id_ed25519
-    passphrase: ""
-    role: lab
-    env: lab
+# Tailscale MCP Agent - Whitelisted Commands Configuration
+#
+# This file defines which commands can be executed on the remote server.
+# Only commands listed here will be allowed - everything else is blocked.
+#
+# Format:
+#   - name: unique_command_name
+#     description: What this command does
+#     command_template: The actual shell command (use {param} for parameters)
+#     category: system | disk | network | process | service | docker | custom
+#     parameters:  # Optional - for commands with placeholders
+#       param_name: Description of the parameter
+#     dangerous: false  # Set to true for potentially destructive commands
+#     requires_confirmation: false  # Set to true to require user confirmation
 
-  - name: vm1
-    hostname: 100.69.115.94
-    username: ubuntu
-    ssh_key_path: /home/buttermcgutters/.ssh/id_ed25519
-    passphrase: "515194"
-    port: 2222
-    role: lab
-    env: lab
-# for aws ec2 instance this would be something like
-# - name: prod-api-1
-#   hostname: prod-api-1.your-tailnet.ts.net
-#   username: ubuntu
-#   ssh_key_path: /home/you/.ssh/id_ed25519
-#   role: web
-#   env: prod
+# =============================================================================
+# SYSTEM INFORMATION
+# =============================================================================
 
+commands:
+  - name: ubuntu
+    description: Get the hostname of the remote server
+    command_template: hostname
+    category: system
+
+  - name: uptime
+    description: Show how long the system has been running and load averages
+    command_template: uptime
+    category: system
+
+  - name: whoami
+    description: Display the current user on the remote system
+    command_template: whoami
+    category: system
+
+  - name: uname
+    description: Show system information including kernel version
+    command_template: uname -a
+    category: system
+
+  - name: date
+    description: Show current date and time on the server
+    command_template: date
+    category: system
+
+  - name: timezone
+    description: Show the server's timezone
+    command_template: timedatectl | grep "Time zone"
+    category: system
+
+  # =============================================================================
+  # DISK USAGE
+  # =============================================================================
+
+  - name: disk_usage
+    description: Show disk space usage for all mounted filesystems
+    command_template: df -h
+    category: disk
+
+  - name: disk_usage_path
+    description: Show disk usage for a specific path
+    command_template: du -sh {path}
+    category: disk
+    parameters:
+      path: Path to check disk usage for (e.g., /var/log)
+
+  - name: disk_inodes
+    description: Show inode usage for all filesystems
+    command_template: df -i
+    category: disk
+
+  - name: largest_files
+    description: Find the 10 largest files in a directory
+    command_template: find {path} -type f -exec du -h {} + 2>/dev/null | sort -rh | head -10
+    category: disk
+    parameters:
+      path: Directory to search (e.g., /var/log)
+
+  # =============================================================================
+  # MEMORY
+  # =============================================================================
+
+  - name: memory_usage
+    description: Display memory usage in human-readable format
+    command_template: free -h
+    category: system
+
+  - name: memory_detailed
+    description: Show detailed memory information from /proc/meminfo
+    command_template: cat /proc/meminfo | head -20
+    category: system
+
+  # =============================================================================
+  # PROCESSES
+  # =============================================================================
+
+  - name: top_processes
+    description: Show top 10 processes by CPU usage
+    command_template: ps aux --sort=-%cpu | head -11
+    category: process
+
+  - name: top_memory_processes
+    description: Show top 10 processes by memory usage
+    command_template: ps aux --sort=-%mem | head -11
+    category: process
+
+  - name: process_count
+    description: Count the total number of running processes
+    command_template: ps aux | wc -l
+    category: process
+
+  - name: process_tree
+    description: Show process tree
+    command_template: pstree -p | head -50
+    category: process
+
+  # =============================================================================
+  # NETWORK
+  # =============================================================================
+
+  - name: network_interfaces
+    description: List network interfaces and their IP addresses
+    command_template: ip addr show
+    category: network
+
+  - name: listening_ports
+    description: Show all listening TCP/UDP ports
+    command_template: ss -tulpn
+    category: network
+
+  - name: network_connections
+    description: Show active network connections
+    command_template: ss -tunapl | head -20
+    category: network
+
+  - name: network_stats
+    description: Show network interface statistics
+    command_template: ip -s link
+    category: network
+
+  - name: dns_servers
+    description: Show configured DNS servers
+    command_template: cat /etc/resolv.conf
+    category: network
+
+  - name: routing_table
+    description: Show the routing table
+    command_template: ip route
+    category: network
+
+  # =============================================================================
+  # SERVICES (SYSTEMD)
+  # =============================================================================
+
+  - name: service_status
+    description: Check the status of a specific systemd service
+    command_template: systemctl status {service_name} --no-pager
+    category: service
+    parameters:
+      service_name: Name of the service (e.g., nginx, docker)
+
+  - name: failed_services
+    description: List all failed systemd services
+    command_template: systemctl --failed --no-pager
+    category: service
+
+  - name: active_services
+    description: List all active services
+    command_template: systemctl list-units --type=service --state=active --no-pager | head -30
+    category: service
+
+  - name: service_logs
+    description: Show recent logs for a service (last 50 lines)
+    command_template: journalctl -u {service_name} -n 50 --no-pager
+    category: service
+    parameters:
+      service_name: Name of the service
+
+  # =============================================================================
+  # DOCKER (if available)
+  # =============================================================================
+
+  - name: docker_ps
+    description: List running Docker containers
+    command_template: docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+    category: docker
+
+  - name: docker_ps_all
+    description: List all Docker containers (including stopped)
+    command_template: docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+    category: docker
+
+  - name: docker_stats
+    description: Show Docker container resource usage (one snapshot)
+    command_template: docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}'
+    category: docker
+
+  - name: docker_images
+    description: List Docker images
+    command_template: docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}'
+    category: docker
+
+  - name: docker_logs
+    description: Show recent logs for a Docker container (last 50 lines)
+    command_template: docker logs --tail 50 {container_name}
+    category: docker
+    parameters:
+      container_name: Name or ID of the container
+
+  - name: docker_volumes
+    description: List Docker volumes
+    command_template: docker volume ls
+    category: docker
+
+  - name: docker_networks
+    description: List Docker networks
+    command_template: docker network ls
+    category: docker
+
+  # =============================================================================
+  # LOGS
+  # =============================================================================
+
+  - name: syslog_recent
+    description: Show recent syslog entries (last 50 lines)
+    command_template: tail -n 50 /var/log/syslog 2>/dev/null || journalctl -n 50 --no-pager
+    category: system
+
+  - name: auth_log
+    description: Show recent authentication log entries
+    command_template: tail -n 30 /var/log/auth.log 2>/dev/null || journalctl -u ssh -n 30 --no-pager
+    category: system
+
+  - name: dmesg_recent
+    description: Show recent kernel messages
+    command_template: dmesg | tail -30
+    category: system
+
+  # =============================================================================
+  # SECURITY AUDIT
+  # =============================================================================
+
+  - name: logged_in_users
+    description: Show currently logged in users
+    command_template: who
+    category: system
+
+  - name: last_logins
+    description: Show recent login history
+    command_template: last -n 10
+    category: system
+
+  - name: sudo_users
+    description: List users in the sudo group
+    command_template: getent group sudo
+    category: system
