@@ -158,6 +158,7 @@ Before deploying:
 - [ ] Verify SSH key has minimal permissions on remote server
 - [ ] Consider running the agent in a container
 - [ ] Enable Tailscale ACLs to restrict access
+- [ ] Run check_setup.py to verify dependencies are installed correctly
 
 ## 🏗️ Project Structure
 
