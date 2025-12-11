@@ -30,6 +30,11 @@ Claude never has raw shell access. It can only invoke predefined tools that map 
 
 <img width="2546" height="1538" alt="image" src="https://github.com/user-attachments/assets/f1fd9173-5446-4967-bbcf-5680be5cf2a2" />
 
+## 📹 Quick Demo
+
+https://github.com/user-attachments/assets/3919bec8-ec6e-4538-b5ae-2bc5fcf82db3
+
+*Simple walkthrough: launching the agent and running system commands*
 
 ---
 
