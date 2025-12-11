@@ -1,14 +1,14 @@
 # Tailscale-MCP-Remote-Ops-Agent
 > Secure AI-powered infrastructure management over zero-trust networks
 
-This is a proof-of-concept agent that lets you chat with Claude to execute commands on a remote server via SSH and Tailscale, using the Model Context Protocol (MCP). This isn't anything close to being production ready this is just a weekend project I built to explore the space of AgentOps.
+This is a proof-of-concept agent that lets you chat with Claude to execute commands on a remote server via SSH and Tailscale, using MCP. It isn’t production-ready more of a personal POC I hacked together over a few days to explore the AgentOps space.
 
 ---
 > **Note:** This is an independent proof-of-concept and **not** an official Tailscale product.
 ---
 
 # The Problem
-Managing servers today forces a bad tradeoff: either give AI full shell access which is insane, copy-paste commands manually which is tedious, or build fragile custom integrations. This POC demonstrates a middle path where an AI agent that can execute only whitelisted commands over tailscale's zero trust network, letting you manage infrastructure through natural conversation without sacrificing safety.
+Managing servers today forces a bad tradeoff: either give AI full shell access which is insane, copy-paste commands manually which is tedious, or build fragile custom integrations. This POC demonstrates a middle path where an AI agent can execute only whitelisted commands over Tailscale’s zero-trust network, letting you manage infrastructure through natural conversation without sacrificing safety.
 
 This POC combines:
 * AI agent (Claude with MCP tools)
@@ -31,10 +31,10 @@ Claude never has raw shell access. It can only invoke predefined tools that map 
 <img width="2546" height="1538" alt="image" src="https://github.com/user-attachments/assets/f1fd9173-5446-4967-bbcf-5680be5cf2a2" />
 
 ## 📹 Quick Demo
+*Simple walkthrough: launching the agent and running system commands*
 
 https://github.com/user-attachments/assets/3919bec8-ec6e-4538-b5ae-2bc5fcf82db3
 
-*Simple walkthrough: launching the agent and running system commands*
 
 ---
 
