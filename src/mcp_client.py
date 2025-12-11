@@ -209,7 +209,7 @@ class InProcessMCPClient:
             )
         
         # Import and execute tools directly
-        from .config import SSHConfig, DEFAULT_COMMANDS
+        from .config import SSHConfig, get_whitelisted_commands, CommandCategory
         from .ssh_client import SSHClient, test_ssh_connection
         
         try:
@@ -224,8 +224,7 @@ class InProcessMCPClient:
             
             # Handle list_commands (no SSH needed)
             if tool_name == "list_commands":
-                from .config import CommandCategory
-                commands = list(DEFAULT_COMMANDS)
+                commands = get_whitelisted_commands()
                 category = arguments.get("category")
                 if category:
                     try:
@@ -353,12 +352,12 @@ class InProcessMCPClient:
                         "output": cmd_result.stdout.strip(),
                     }, indent=2)
                 else:
-                    content = json.dumps({
-                        "success": False,
-                        "error": cmd_result.error_message or cmd_result.stderr,
-                    }, indent=2)
-                
-                return ToolResult(tool_name=tool_name, success=True, content=content)
+                content = json.dumps({
+                    "success": False,
+                    "error": cmd_result.error_message or cmd_result.stderr,
+                }, indent=2)
+
+                return ToolResult(tool_name=tool_name, success=cmd_result.success, content=content)
                 
         except Exception as e:
             return ToolResult(

@@ -22,6 +22,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from dotenv import load_dotenv
 
+from src.config import AgentConfig
+
 
 def print_banner():
     """Print startup banner."""
@@ -180,21 +182,23 @@ def main():
         print("⚠️  Starting without SSH connection")
         print("   You can still chat with Claude, but remote commands will fail.")
         print("   Configure SSH settings in .env to enable remote execution.")
-    
+
     print()
     print("=" * 60)
     print()
+    agent_config = AgentConfig.from_env()
+
     print("Starting Gradio UI...")
     print()
-    print("   Local URL:     http://localhost:7860")
-    print("   Tailscale URL: http://<your-tailscale-ip>:7860")
+    print(f"   Local URL:     http://localhost:{agent_config.ui_port}")
+    print(f"   Tailscale URL: http://<your-tailscale-ip>:{agent_config.ui_port}")
     print()
     print("   Press Ctrl+C to stop")
     print()
-    
+
     # Import and run the chat UI
     from src.chat_ui import main as run_chat
-    run_chat()
+    run_chat(agent_config)
 
 
 if __name__ == "__main__":

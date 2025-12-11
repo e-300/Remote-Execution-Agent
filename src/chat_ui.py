@@ -13,7 +13,6 @@ Or:
 
 import asyncio
 import json
-import os
 from typing import Any, cast
 
 import gradio as gr
@@ -21,31 +20,22 @@ from anthropic import Anthropic
 from anthropic.types import ToolParam, TextBlock
 from dotenv import load_dotenv
 
+from .config import AgentConfig, get_whitelisted_commands, CommandCategory
+
 # Load environment variables
 load_dotenv()
 
 
-def create_claude_client() -> Anthropic:
+def create_claude_client(agent_config: AgentConfig) -> Anthropic:
     """Create and return an Anthropic client."""
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "ANTHROPIC_API_KEY not found. "
-            "Please set it in your .env file or environment variables."
-        )
-    return Anthropic(api_key=api_key)
+    return Anthropic(api_key=agent_config.anthropic_api_key)
 
 
-def get_ssh_status() -> tuple[bool, str]:
+def get_ssh_status(agent_config: AgentConfig) -> tuple[bool, str]:
     """Check if SSH is configured and return status."""
-    try:
-        from .config import SSHConfig
-        config = SSHConfig.from_env()
-        return True, f"SSH configured for {config.user}@{config.host}"
-    except ValueError as e:
-        return False, str(e)
-    except Exception as e:
-        return False, f"Error: {e}"
+    if agent_config.ssh is None:
+        return False, "SSH configuration missing (REMOTE_HOST/REMOTE_USER not set)"
+    return True, f"SSH configured for {agent_config.ssh.user}@{agent_config.ssh.host}"
 
 
 def get_mcp_tools() -> list[ToolParam]:
@@ -158,14 +148,13 @@ def get_mcp_tools() -> list[ToolParam]:
     ]
 
 
-async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
+async def execute_tool(name: str, arguments: dict[str, Any], agent_config: AgentConfig) -> str:
     """
     Execute an MCP tool and return the result.
     
     This function handles the actual execution of tools by calling
     the appropriate SSH commands on the remote server.
     """
-    from .config import SSHConfig, DEFAULT_COMMANDS
     from .ssh_client import SSHClient, test_ssh_connection
     
     try:
@@ -179,10 +168,9 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
         
         # Handle list_commands (no SSH needed)
         if name == "list_commands":
-            commands = list(DEFAULT_COMMANDS)
+            commands = get_whitelisted_commands()
             category = arguments.get("category")
             if category:
-                from .config import CommandCategory
                 try:
                     cat = CommandCategory(category.lower())
                     commands = [c for c in commands if c.category == cat]
@@ -206,14 +194,14 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
             return json.dumps({"count": len(result), "commands": result}, indent=2)
         
         # All other tools need SSH
-        try:
-            config = SSHConfig.from_env()
-        except ValueError as e:
+        if agent_config.ssh is None:
             return json.dumps({
                 "success": False,
-                "error": f"SSH not configured: {e}",
+                "error": "SSH not configured: set REMOTE_HOST and REMOTE_USER",
                 "hint": "Set REMOTE_HOST, REMOTE_USER, and REMOTE_SSH_KEY_PATH in .env",
             }, indent=2)
+
+        config = agent_config.ssh
         
         # Handle server_status
         if name == "server_status":
@@ -290,9 +278,9 @@ async def execute_tool(name: str, arguments: dict[str, Any]) -> str:
         }, indent=2)
 
 
-def get_system_prompt() -> str:
+def get_system_prompt(agent_config: AgentConfig) -> str:
     """Generate system prompt with context about available tools."""
-    ssh_ok, ssh_status = get_ssh_status()
+    ssh_ok, ssh_status = get_ssh_status(agent_config)
     
     return f"""You are a helpful assistant that can execute commands on a remote server via SSH and Tailscale.
 
@@ -326,6 +314,7 @@ async def chat_with_tools(
     message: str,
     history: list[dict[str, str]],
     client: Anthropic,
+    agent_config: AgentConfig,
 ) -> str:
     """
     Send a message to Claude with tool use capability.
@@ -353,9 +342,9 @@ async def chat_with_tools(
     for _ in range(max_iterations):
         # Call Claude
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            system=get_system_prompt(),
+            model=agent_config.model,
+            max_tokens=agent_config.max_tokens,
+            system=get_system_prompt(agent_config),
             tools=tools,
             messages=messages,  # type: ignore[arg-type]
         )
@@ -373,7 +362,7 @@ async def chat_with_tools(
             for block in response.content:
                 if block.type == "tool_use":
                     # Execute the tool
-                    result = await execute_tool(block.name, cast(dict[str, Any], block.input))
+                    result = await execute_tool(block.name, cast(dict[str, Any], block.input), agent_config)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
@@ -396,19 +385,19 @@ async def chat_with_tools(
     return "I've reached the maximum number of tool calls. Please try a simpler request."
 
 
-def create_chat_interface() -> gr.Blocks:
+def create_chat_interface(agent_config: AgentConfig) -> gr.Blocks:
     """Create and return the Gradio chat interface with tool support."""
     
     # Initialize Claude client
     try:
-        client = create_claude_client()
+        client = create_claude_client(agent_config)
         claude_status = "✅ Connected to Claude API"
     except ValueError as e:
         client = None
         claude_status = f"❌ {e}"
     
     # Check SSH status
-    ssh_ok, ssh_status = get_ssh_status()
+    ssh_ok, ssh_status = get_ssh_status(agent_config)
     ssh_display = f"✅ {ssh_status}" if ssh_ok else f"⚠️ {ssh_status}"
     
     with gr.Blocks(
@@ -509,7 +498,7 @@ def create_chat_interface() -> gr.Blocks:
             history_dicts: list[dict[str, str]] = list(history) if history else []
             
             # Get response with tools (run async)
-            response = asyncio.run(chat_with_tools(message, history_dicts, client))
+            response = asyncio.run(chat_with_tools(message, history_dicts, client, agent_config))
             
             # Add to history in Gradio 6.0 message format
             history = history + [
@@ -541,33 +530,35 @@ def create_chat_interface() -> gr.Blocks:
     return demo
 
 
-def main() -> None:
+def main(agent_config: AgentConfig | None = None) -> None:
     """Launch the chat interface."""
+    if agent_config is None:
+        agent_config = AgentConfig.from_env()
     print("🚀 Starting Tailscale MCP Agent...")
     print("   Phase 6: Full Agentic Loop with Tool Execution")
     print()
     
     # Check configuration
-    ssh_ok, ssh_msg = get_ssh_status()
+    ssh_ok, ssh_msg = get_ssh_status(agent_config)
     if ssh_ok:
         print(f"   ✅ SSH: {ssh_msg}")
     else:
         print(f"   ⚠️  SSH: {ssh_msg}")
     
     try:
-        create_claude_client()
+        create_claude_client(agent_config)
         print("   ✅ Claude API: Connected")
     except ValueError as e:
         print(f"   ❌ Claude API: {e}")
     
     print()
-    print("   Open http://localhost:7860 in your browser")
+    print(f"   Open http://localhost:{agent_config.ui_port} in your browser")
     print()
     
-    demo = create_chat_interface()
+    demo = create_chat_interface(agent_config)
     demo.launch(
         server_name="0.0.0.0",
-        server_port=7860,
+        server_port=agent_config.ui_port,
         share=False,
     )
 

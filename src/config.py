@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 from enum import Enum
 
+import yaml
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from dotenv import load_dotenv
 
@@ -187,13 +188,13 @@ class WhitelistedCommand(BaseModel):
 
 class AgentConfig(BaseModel):
     """Full configuration for the Tailscale MCP Agent."""
-    
+
     model_config = ConfigDict(
         str_strip_whitespace=True,
     )
-    
-    ssh: SSHConfig = Field(
-        ...,
+
+    ssh: Optional[SSHConfig] = Field(
+        default=None,
         description="SSH connection configuration",
     )
     
@@ -228,9 +229,15 @@ class AgentConfig(BaseModel):
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-        
+
+        ssh_config: Optional[SSHConfig]
+        try:
+            ssh_config = SSHConfig.from_env()
+        except ValueError:
+            ssh_config = None
+
         return cls(
-            ssh=SSHConfig.from_env(),
+            ssh=ssh_config,
             anthropic_api_key=api_key,
             model=os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514"),
             max_tokens=int(os.getenv("MAX_TOKENS", "4096")),
@@ -355,7 +362,7 @@ DEFAULT_COMMANDS: list[WhitelistedCommand] = [
 
 def get_command_by_name(name: str) -> Optional[WhitelistedCommand]:
     """Look up a whitelisted command by name."""
-    for cmd in DEFAULT_COMMANDS:
+    for cmd in get_whitelisted_commands():
         if cmd.name == name:
             return cmd
     return None
@@ -363,4 +370,65 @@ def get_command_by_name(name: str) -> Optional[WhitelistedCommand]:
 
 def get_commands_by_category(category: CommandCategory) -> list[WhitelistedCommand]:
     """Get all commands in a specific category."""
-    return [cmd for cmd in DEFAULT_COMMANDS if cmd.category == category]
+    return [cmd for cmd in get_whitelisted_commands() if cmd.category == category]
+
+
+_cached_commands: Optional[list[WhitelistedCommand]] = None
+_commands_path: Optional[Path] = None
+
+
+def _parse_commands_yaml(path: Path) -> list[WhitelistedCommand]:
+    """Load whitelisted commands from a YAML file."""
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+
+    raw_commands = data.get("commands", [])
+    commands: list[WhitelistedCommand] = []
+
+    for raw in raw_commands:
+        category_value = raw.get("category", CommandCategory.CUSTOM.value)
+        try:
+            category = CommandCategory(category_value.lower())
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid category '{category_value}' in {path} for command '{raw.get('name')}'"
+            ) from exc
+
+        commands.append(
+            WhitelistedCommand(
+                name=raw["name"],
+                description=raw["description"],
+                command_template=raw["command_template"],
+                category=category,
+                parameters=raw.get("parameters", {}),
+                dangerous=raw.get("dangerous", False),
+                requires_confirmation=raw.get("requires_confirmation", False),
+                example_usage=raw.get("example_usage"),
+            )
+        )
+
+    return commands
+
+
+def get_whitelisted_commands(path: Optional[Path] = None) -> list[WhitelistedCommand]:
+    """Return whitelisted commands, preferring YAML configuration when available."""
+    global _cached_commands, _commands_path
+
+    yaml_path = path or Path(__file__).resolve().parent.parent / "config" / "commands.yaml"
+
+    if _cached_commands is not None and _commands_path == yaml_path:
+        return list(_cached_commands)
+
+    if yaml_path.exists():
+        try:
+            commands = _parse_commands_yaml(yaml_path)
+            _cached_commands = commands
+            _commands_path = yaml_path
+            return list(commands)
+        except Exception:
+            # Fall back to defaults if YAML is invalid
+            pass
+
+    _cached_commands = list(DEFAULT_COMMANDS)
+    _commands_path = None
+    return list(DEFAULT_COMMANDS)
