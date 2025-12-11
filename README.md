@@ -122,8 +122,8 @@ There are **two ways** to run this project:
 ### 2. Clone the repo
 
 ```bash
-git clone git@github.com:e-300/Remote-Execution-Agent.git
-cd tailscale-mcp-agent
+git clone git@github.com:e-300/Tailscale-MCP-Remote-Ops-Agent.git
+cd Tailscale-MCP-Remote-Ops-Agent
 ```
 
 ---
@@ -361,8 +361,8 @@ docker port tailscale-mcp 7860
 ### 2. Clone and set up environment
 
 ```bash
-git clone git@github.com:e-300/Remote-Execution-Agent.git
-cd tailscale-mcp-agent
+git clone git@github.com:e-300/Tailscale-MCP-Remote-Ops-Agent.git
+cd Tailscale-MCP-Remote-Ops-Agent
 
 python3 -m venv venv
 source venv/bin/activate       # On Windows: venv\Scripts\activate
