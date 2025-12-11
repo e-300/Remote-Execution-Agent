@@ -8,7 +8,7 @@ This is a proof-of-concept agent that lets you chat with Claude to execute comma
 ---
 
 # The Problem
-Managing servers today forces a bad tradeoff: either give AI full shell access which is insane, copy-paste commands manually which is tedious, or build fragile custom integrations. This POC demonstrates a middle path where AI that can execute only whitelisted commands over tailscale's zero trust network, letting you manage infrastructure through natural conversation without sacrificing safety.
+Managing servers today forces a bad tradeoff: either give AI full shell access which is insane, copy-paste commands manually which is tedious, or build fragile custom integrations. This POC demonstrates a middle path where an AI agent that can execute only whitelisted commands over tailscale's zero trust network, letting you manage infrastructure through natural conversation without sacrificing safety.
 
 This POC combines:
 * AI agent (Claude with MCP tools)
@@ -519,7 +519,7 @@ Before deploying:
 ## 🏗️ Project Structure
 
 ```text
-tailscale-mcp-agent/
+Tailscale-MCP-Remote-Ops-Agent/
 ├── src/
 │   ├── __init__.py        # Package init
 │   ├── chat_ui.py         # Gradio chat interface + agentic loop
