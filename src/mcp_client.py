@@ -352,7 +352,7 @@ class InProcessMCPClient:
                         "output": cmd_result.stdout.strip(),
                     }, indent=2)
                 else:
-                content = json.dumps({
+                    content = json.dumps({
                     "success": False,
                     "error": cmd_result.error_message or cmd_result.stderr,
                 }, indent=2)
