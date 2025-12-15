@@ -30,6 +30,9 @@ Claude never has raw shell access. It can only invoke predefined tools that map 
 
 <img width="2546" height="1538" alt="image" src="https://github.com/user-attachments/assets/f1fd9173-5446-4967-bbcf-5680be5cf2a2" />
 
+**Demo Video:**
+
+https://github.com/user-attachments/assets/91cb238b-8e1a-4157-8f60-814d6143c8f0
 
 
 ---
